@@ -1,3 +1,30 @@
+/**
+ * PDF to Image Conversion Module
+ * 
+ * IMPORTANT: PDF.js Version Compatibility
+ * ---------------------------------------
+ * This module requires that the PDF.js library version matches the worker version.
+ * 
+ * Current version: 5.4.54 (see package.json)
+ * 
+ * Implementation Notes:
+ * - The worker file is now loaded directly from node_modules using dynamic imports
+ * - This ensures the worker version always matches the library version
+ * - No manual file copying is required when updating the library
+ * 
+ * If you upgrade the pdfjs-dist package:
+ * - The worker file will be automatically loaded from the correct location
+ * - No additional steps are required to maintain version compatibility
+ * 
+ * Version mismatch errors will appear as:
+ * "The API version '5.x.x' does not match the Worker version '5.y.y'"
+ * 
+ * Troubleshooting:
+ * - Clear browser cache after updating the library
+ * - Check console logs for version information
+ * - Verify that import.meta.url resolution is working correctly in your environment
+ */
+
 export interface PdfConversionResult {
     imageUrl: string;
     file: File | null;
@@ -16,13 +43,14 @@ async function loadPdfJs(): Promise<any> {
     try {
         // @ts-expect-error - pdfjs-dist/build/pdf.mjs is not a module
         loadPromise = import('pdfjs-dist/build/pdf.min.mjs').then(async (lib) => {
-            // Import the worker directly from node_modules to ensure version match
-            const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs');
-            // Set the worker source to use the imported worker
-            lib.GlobalWorkerOptions.workerSrc = new URL(
-                'pdfjs-dist/build/pdf.worker.min.mjs',
-                import.meta.url
-            ).href;
+            // Dynamically import the worker directly from node_modules
+            // This ensures the worker version always matches the library version
+            const workerUrl = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).href;
+            lib.GlobalWorkerOptions.workerSrc = workerUrl;
+            
+            console.log('PDF.js worker source set to:', lib.GlobalWorkerOptions.workerSrc);
+            console.log('PDF.js version:', lib.version);
+            
             pdfjsLib = lib;
             isLoading = false;
             return lib;
@@ -126,6 +154,16 @@ export async function convertPdfToImage(
         if (err instanceof Error) {
             errorMessage += `: ${err.message}`;
             console.error('Error stack:', err.stack);
+            
+            // Check specifically for version mismatch errors
+            const errorStr = err.message.toString();
+            if (errorStr.includes('API version') && errorStr.includes('Worker version')) {
+                console.error('PDF.js version mismatch detected!');
+                // Provide a more helpful error message with resolution steps
+                errorMessage = 'PDF.js API version does not match Worker version. ' +
+                    'Please ensure you are using the correct worker file for your PDF.js version. ' +
+                    'Try clearing your browser cache or updating the worker file.';
+            }
         } else {
             errorMessage += `: ${String(err)}`;
         }

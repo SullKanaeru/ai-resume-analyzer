@@ -39,7 +39,9 @@ const Upload = () => {
         const imageFile = await convertPdfToImage(file);
         if (!imageFile.file) {
             console.error('PDF conversion error:', imageFile.error);
-            return setStatusText(`Error: ${imageFile.error || 'Failed to convert PDF to image'}`);
+            return setStatusText(
+                `Error: ${imageFile.error || 'Failed to convert PDF to image'}`
+            );
         }
 
         setStatusText('Uploading the image...');
@@ -80,6 +82,7 @@ const Upload = () => {
         await kv.set(`resume:${uuid}`, JSON.stringify(data));
         setStatusText('Analysis complete, redirecting...');
         console.log(data);
+        navigate(`/resume/${uuid}`);
     };
 
     const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -106,11 +109,33 @@ const Upload = () => {
                     <h1>Smart feedback for your dream job</h1>
                     {isProcessing ? (
                         <>
-                            <h2>{statusText}</h2>
-                            <img
-                                src="/images/resume-scan.gif"
-                                className="w-full"
-                            />
+                            <h2
+                                className={
+                                    statusText.startsWith('Error:')
+                                        ? 'text-red-500 font-bold'
+                                        : ''
+                                }
+                            >
+                                {statusText}
+                            </h2>
+                            {statusText.startsWith('Error:') ? (
+                                <div className="mt-4">
+                                    <button
+                                        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+                                        onClick={() => {
+                                            setIsProcessing(false);
+                                            setStatusText('');
+                                        }}
+                                    >
+                                        Try Again
+                                    </button>
+                                </div>
+                            ) : (
+                                <img
+                                    src="/images/resume-scan.gif"
+                                    className="w-full"
+                                />
+                            )}
                         </>
                     ) : (
                         <h2>
